@@ -25,6 +25,7 @@ import modeling
 import optimization
 import tokenization
 import tensorflow as tf
+import code
 
 flags = tf.flags
 
@@ -127,7 +128,7 @@ flags.DEFINE_integer(
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
 
-  def __init__(self, guid, text_a, text_b=None, label=None):
+  def __init__(self, guid, text_a, text_b=None, label=None, dialogue= False):
     """Constructs a InputExample.
 
     Args:
@@ -143,6 +144,7 @@ class InputExample(object):
     self.text_a = text_a
     self.text_b = text_b
     self.label = label
+    self.isdialogue = dialogue
 
 
 class PaddingInputExample(object):
@@ -308,6 +310,7 @@ class MrpcProcessor(DataProcessor):
 
   def get_test_examples(self, data_dir):
     """See base class."""
+
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
 
@@ -331,6 +334,70 @@ class MrpcProcessor(DataProcessor):
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
+
+class DailyDialogueProcessor(DataProcessor):
+  """Processor for the Daily Dialogue data set."""
+
+    
+  def get_train_examples(self, data_dir):
+    """See base class."""
+
+    ff = self.ddread(data_dir,'train')
+    return self._create_examples(ff, "train")
+
+  def get_dev_examples(self, data_dir):
+    """See base class."""
+
+    ff = self.ddread(data_dir,'validation')
+    return self._create_examples(ff, "validation")
+
+  def get_test_examples(self, data_dir):
+    """See base class."""
+    ff = self.ddread(data_dir,'test')
+    return self._create_examples(ff, "test")
+
+  def get_labels(self):
+    """See base class."""
+    return ["1", "2","3","4"]
+
+  def _create_examples(self, lines, set_type):
+    """Creates examples for the training and dev sets."""
+    examples = []
+    for (i, line) in enumerate(lines):
+      if i == 0:
+        continue
+
+      dialogue_a = [tokenization.convert_to_unicode(ll) for ll in line[1]][:-1]
+      
+      guid = "%s-%s" % (set_type, i)
+
+      if set_type == "test":
+        label = "0"
+      else:
+        label = [tokenization.convert_to_unicode(ll) for ll in line[0]][:-1]
+        examples.append(
+          InputExample(guid=guid, text_a=dialogue_a, text_b=None, label=label, dialogue = True))
+
+
+    return examples
+
+  @classmethod
+  def ddread(cls, data_dir, datadir_name):
+    """
+    reads the raw data for Daily Dialogue. 
+    A seperate function creates the data as needed for the algorithm
+    """
+    with open(os.path.join(data_dir,datadir_name,"dialogues_act_"+datadir_name+'.txt'),'r') as f_acts:
+      fa = f_acts.read()
+
+    with open(os.path.join(data_dir, datadir_name,"dialogues_" + datadir_name + '.txt'),'r') as f_phrases:
+      fp = f_phrases.read()
+
+    rows_acts = fa.split('\n')
+    rows_dialogues = fp.split('\n')
+    
+    return zip([r.split(' ') for r in rows_acts[:-1]][:-1], [r.split('__eou__') for r in rows_dialogues[:-1]][:-1])
+    
 
 
 class ColaProcessor(DataProcessor):
@@ -390,6 +457,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   for (i, label) in enumerate(label_list):
     label_map[label] = i
 
+  code.interact(local = dict(locals(), **globals()))
   tokens_a = tokenizer.tokenize(example.text_a)
   tokens_b = None
   if example.text_b:
@@ -788,6 +856,7 @@ def main(_):
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
+      "ddial": DailyDialogueProcessor
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
