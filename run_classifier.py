@@ -379,8 +379,10 @@ class DailyDialogueProcessor(DataProcessor):
       else:
         label = [tokenization.convert_to_unicode(ll) for ll in line[0]][:-1]
         if FLAGS.twotext:
-            examples.append(
-              InputExample(guid=guid, text_a=dialogue_a[0], text_b=dialogue_a[1], label=label[1]))
+            for k in range(1,len(dialogue_a)):
+                examples.append(
+                  InputExample(guid=guid, text_a=dialogue_a[0], text_b=dialogue_a[k], label=label[k]))
+
 
         else:
             examples.append(
