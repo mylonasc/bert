@@ -381,7 +381,7 @@ class DailyDialogueProcessor(DataProcessor):
         if FLAGS.twotext:
             for k in range(1,len(dialogue_a)):
                 examples.append(
-                  InputExample(guid=guid, text_a=dialogue_a[0], text_b=dialogue_a[k], label=label[k]))
+                  InputExample(guid=guid, text_a=dialogue_a[k-1], text_b=dialogue_a[k], label=label[k]))
 
 
         else:
