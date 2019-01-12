@@ -4,6 +4,7 @@ export DDIAL_DIR=../../ijcnlp_dailydialog # Assumes you have already unzipped th
 
 python3 run_classifier.py \
   --task_name=ddial \
+  --twotext=true \
   --do_train=true \
   --do_eval=true \
   --do_lower_case=false \

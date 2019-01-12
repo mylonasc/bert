@@ -43,6 +43,7 @@ flags.DEFINE_string(
     "This specifies the model architecture.")
 
 flags.DEFINE_string("task_name", None, "The name of the task to train.")
+flags.DEFINE_bool("twotext", True, "In the case of the Dialogue act classification tasks, if sentence pairs are considered. ")
 
 flags.DEFINE_string("vocab_file", None,
                     "The vocabulary file that the BERT model was trained on.")
@@ -128,7 +129,7 @@ flags.DEFINE_integer(
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
 
-  def __init__(self, guid, text_a, text_b=None, label=None, dialogue= False):
+  def __init__(self, guid, text_a, text_b=None, label=None):
     """Constructs a InputExample.
 
     Args:
@@ -144,7 +145,6 @@ class InputExample(object):
     self.text_a = text_a
     self.text_b = text_b
     self.label = label
-    self.isdialogue = dialogue
 
 
 class PaddingInputExample(object):
@@ -336,24 +336,27 @@ class MrpcProcessor(DataProcessor):
     return examples
 
 class DailyDialogueProcessor(DataProcessor):
-  """Processor for the Daily Dialogue data set."""
+  """
+  Processor for the Daily Dialogue data set.
+  It implements at the moment only an utterance-pair task (feeding two utterances and classifying the second one).
+  """
 
     
   def get_train_examples(self, data_dir):
     """See base class."""
 
-    ff = self.ddread(data_dir,'train')
+    ff = self._ddread(data_dir,'train')
     return self._create_examples(ff, "train")
 
   def get_dev_examples(self, data_dir):
     """See base class."""
 
-    ff = self.ddread(data_dir,'validation')
+    ff = self._ddread(data_dir,'validation')
     return self._create_examples(ff, "validation")
 
   def get_test_examples(self, data_dir):
     """See base class."""
-    ff = self.ddread(data_dir,'test')
+    ff = self._ddread(data_dir,'test')
     return self._create_examples(ff, "test")
 
   def get_labels(self):
@@ -375,14 +378,18 @@ class DailyDialogueProcessor(DataProcessor):
         label = "0"
       else:
         label = [tokenization.convert_to_unicode(ll) for ll in line[0]][:-1]
-        examples.append(
-          InputExample(guid=guid, text_a=dialogue_a, text_b=None, label=label, dialogue = True))
+        if FLAGS.twotext:
+            examples.append(
+              InputExample(guid=guid, text_a=dialogue_a[0], text_b=dialogue_a[1], label=label[1]))
 
+        else:
+            examples.append(
+              InputExample(guid=guid, text_a=dialogue_a, text_b=None, label=label, dialogue = True))
 
     return examples
 
   @classmethod
-  def ddread(cls, data_dir, datadir_name):
+  def _ddread(cls, data_dir, datadir_name):
     """
     reads the raw data for Daily Dialogue. 
     A seperate function creates the data as needed for the algorithm
@@ -457,7 +464,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   for (i, label) in enumerate(label_list):
     label_map[label] = i
 
-  code.interact(local = dict(locals(), **globals()))
+  #code.interact(local = dict(locals(), **globals()))
   tokens_a = tokenizer.tokenize(example.text_a)
   tokens_b = None
   if example.text_b:
