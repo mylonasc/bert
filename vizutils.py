@@ -3,10 +3,12 @@ import itertools
 import numpy as np
 import os
 
+
+import matplotlib as mpl
+mpl.use('Agg')
+
 import matplotlib.pyplot as plt
 
-#mpl.use('Agg')
-#import matplotlib.pyplot as plt
 
 #from sklearn.metrics import confusion_matrix
 
