@@ -411,6 +411,53 @@ class DailyDialogueProcessor(DataProcessor):
     rows_dialogues = fp.split('\n')
     
     return zip([r.split(' ') for r in rows_acts[:-1]][:-1], [r.split('__eou__') for r in rows_dialogues[:-1]][:-1])
+
+
+class SWDAProcessor(DataProcessor):
+    """
+    This is customized by Dan Bondor to fit more easilly to the folder structure and file format that the GLUE benchmarks had.
+    Processor for the Switchboard data set (https://web.stanford.edu/~jurafsky/ws97/CL-dialog.pdf).
+    """
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
+
+    def get_labels(self):
+        """See base class."""
+        return ['sd', 'b', 'sv', '+', 'qy^d', 'na', 'x', '%', 'qo', 'ba', 'qy',
+                'ny', 'h', 'aa', 'fc', 'ad', 'bh', 'nn', 'b^m', 'fo_o_fw_"_by_bc',
+                'qh', 'bk', 'qw', 'bf', 'ng', '^2', 'no', 'arp_nd', 'qw^d',
+                '^q', '^h', 'br', 'ar', 'qrr', 'ft', 'fp', 'bd', 't3', 't1',
+                'oo_co_cc', '^g', 'fa', 'aap_am']
+
+    def _create_examples(self, lines, set_type):
+        """Creates examples for the training and dev sets."""
+        examples = []
+        for (i, line) in enumerate(lines):
+            if i == 0:
+                continue # skip header row
+            guid = "%s-%s" % (set_type, i)
+            text_a = tokenization.convert_to_unicode(line[2])
+            text_b = tokenization.convert_to_unicode(line[3])
+            if set_type == "test":
+                label = "sd"
+            else:
+                label = tokenization.convert_to_unicode(line[4])
+            examples.append(
+                InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+        return examples
     
 
 
@@ -872,7 +919,8 @@ def main(_):
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
-      "ddial": DailyDialogueProcessor
+      "ddial": DailyDialogueProcessor,
+      "swda": SWDAProcessor
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
