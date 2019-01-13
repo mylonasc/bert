@@ -3,7 +3,6 @@ export BERT_BASE_DIR=../BERTModels/cased_L-12_H-768_A-12 # The BERT model we are
 
 BSIZE=$1
 
-#export GLUE_DIR=../glue_data
 export DATASET_PATH=../Datasets/SWDA # Assumes you have already unzipped the train/test/dev examples. This is to be automated in the future.
 export OUTDIR=$SCRATCH/swda_eng_b$BSIZE
 

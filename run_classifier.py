@@ -448,13 +448,16 @@ class SWDAProcessor(DataProcessor):
         for (i, line) in enumerate(lines):
             if i == 0:
                 continue # skip header row
+            if i == 1:
+                prev_line = line
+                # If we need to classify using also the previous utterance, then 
+                # we also skip the first example (since the beginning of the sentence is not modelled).
+                if FLAGS.twotext:
+                    continue
             guid = "%s-%s" % (set_type, i)
-            text_a = tokenization.convert_to_unicode(line[2])
+            text_a = tokenization.convert_to_unicode(prev_line[3])
             text_b = tokenization.convert_to_unicode(line[3])
-            if set_type == "test":
-                label = "sd"
-            else:
-                label = tokenization.convert_to_unicode(line[4])
+            label = tokenization.convert_to_unicode(line[4])
             examples.append(
                 InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
@@ -1121,14 +1124,18 @@ def main(_):
       cmat= sess.run(cmat)
 
     from vizutils import plot_confusion_matrix
-    plot_confusion_matrix(cmat, processor.get_labels(), saveat = FLAGS.output_dir, suff = 'unnorm')
+    figsize = None
+    if FLAGS.task_name == "swda":
+        figsize = (18,18)
+
+    plot_confusion_matrix(cmat, processor.get_labels(), saveat = FLAGS.output_dir, suff = 'unnorm', figsize  = figsize)
 
     nclasses = [np.sum(np.array(real_classes) == i) for i in set(real_classes)];
     #a = [np.sum(np.array(real_classes) == i) for i in set(real_classes)]
 
     #cmat = (cmat / a) * 100;
 
-    plot_confusion_matrix(cmat, processor.get_labels(),normalize = True, saveat = FLAGS.output_dir, suff = 'norm')
+    plot_confusion_matrix(cmat, processor.get_labels(),normalize = True, saveat = FLAGS.output_dir, suff = 'norm' , figsize = figsize)
 
     
     # code.interact(local = dict(locals(), **globals()))

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
-                          cmap=plt.cm.Blues, saveat = None,suff = None):
+                          cmap=plt.cm.Blues, saveat = None,suff = None, figsize = None):
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
@@ -28,6 +28,8 @@ def plot_confusion_matrix(cm, classes,
         print('Confusion matrix, without normalization')
 
     print(cm)
+    if figsize is not None:
+        plt.figure(figsize = figsize)
 
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
@@ -41,7 +43,7 @@ def plot_confusion_matrix(cm, classes,
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
         plt.text(j, i, format(cm[i, j], fmt),
                  horizontalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
+                 color="white" if cm[i, j] > thresh else "black", fontsize = 7)
 
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
