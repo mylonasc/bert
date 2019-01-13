@@ -26,6 +26,7 @@ import optimization
 import tokenization
 import tensorflow as tf
 import code
+import numpy as np
 
 flags = tf.flags
 
@@ -361,7 +362,7 @@ class DailyDialogueProcessor(DataProcessor):
 
   def get_labels(self):
     """See base class."""
-    return ["1", "2","3","4"]
+    return ["Inform", "Question","Directive","Commisive"]
 
   def _create_examples(self, lines, set_type):
     """Creates examples for the training and dev sets."""
@@ -374,19 +375,23 @@ class DailyDialogueProcessor(DataProcessor):
       
       guid = "%s-%s" % (set_type, i)
 
-      if set_type == "test":
-        label = "0"
+      label = [tokenization.convert_to_unicode(ll) for ll in line[0]][:-1]
+
+      #if set_type == "test":
+      #  label = ["1" for mm in label]
+
+      labels_list = self.get_labels()
+      labels_map = {}
+      for (i, lval) in enumerate(labels_list):
+        labels_map[lval] = i
+
+      if FLAGS.twotext:
+        for k in range(1,len(dialogue_a)):
+          examples.append(
+            InputExample(guid=guid, text_a=dialogue_a[k-1], text_b=dialogue_a[k], label=labels_list[int(label[k])-1]))
       else:
-        label = [tokenization.convert_to_unicode(ll) for ll in line[0]][:-1]
-        if FLAGS.twotext:
-            for k in range(1,len(dialogue_a)):
-                examples.append(
-                  InputExample(guid=guid, text_a=dialogue_a[k-1], text_b=dialogue_a[k], label=label[k]))
-
-
-        else:
-            examples.append(
-              InputExample(guid=guid, text_a=dialogue_a, text_b=None, label=label, dialogue = True))
+        examples.append(
+          InputExample(guid=guid, text_a=dialogue_a, text_b=None, label=label, dialogue = True))
 
     return examples
 
@@ -466,7 +471,6 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   for (i, label) in enumerate(label_list):
     label_map[label] = i
 
-  #code.interact(local = dict(locals(), **globals()))
   tokens_a = tokenizer.tokenize(example.text_a)
   tokens_b = None
   if example.text_b:
@@ -763,6 +767,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
         accuracy = tf.metrics.accuracy(
             labels=label_ids, predictions=predictions, weights=is_real_example)
         loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
+
         return {
             "eval_accuracy": accuracy,
             "eval_loss": loss,
@@ -770,6 +775,8 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
       eval_metrics = (metric_fn,
                       [per_example_loss, label_ids, logits, is_real_example])
+
+      #code.interact(local = dict(locals(), **globals()))
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
@@ -1035,19 +1042,50 @@ def main(_):
     result = estimator.predict(input_fn=predict_input_fn)
 
     output_predict_file = os.path.join(FLAGS.output_dir, "test_results.tsv")
+    maxids = [];
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
       tf.logging.info("***** Predict results *****")
       for (i, prediction) in enumerate(result):
         probabilities = prediction["probabilities"]
+        maxids.append(np.argmax(probabilities))
+
         if i >= num_actual_predict_examples:
           break
         output_line = "\t".join(
             str(class_probability)
-            for class_probability in probabilities) + "\n"
+            for class_probability in probabilities)  + "\n"
         writer.write(output_line)
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
+
+    label_map = {}
+    for (i, label) in enumerate(processor.get_labels()):
+      label_map[label] = i
+
+    real_classes = [label_map[kk.label] for kk in predict_examples]
+
+
+    # Write a confusion matrix:
+
+    cmat = tf.confusion_matrix(real_classes, np.array(maxids))
+    with tf.Session() as sess:
+      cmat= sess.run(cmat)
+
+    from vizutils import plot_confusion_matrix
+    plot_confusion_matrix(cmat, processor.get_labels(), saveat = FLAGS.output_dir, suff = 'unnorm')
+
+    nclasses = [np.sum(np.array(real_classes) == i) for i in set(real_classes)];
+    #a = [np.sum(np.array(real_classes) == i) for i in set(real_classes)]
+
+    #cmat = (cmat / a) * 100;
+
+    plot_confusion_matrix(cmat, processor.get_labels(),normalize = True, saveat = FLAGS.output_dir, suff = 'norm')
+
+    
+    # code.interact(local = dict(locals(), **globals()))
+    
+
 
 
 if __name__ == "__main__":
