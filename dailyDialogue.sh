@@ -7,9 +7,9 @@ export OUTDIR=ddial_out
 python3 run_classifier.py \
   --task_name=ddial \
   --twotext=true \
-  --do_train=false\
+  --do_train=true\
   --do_eval=false\
-  --do_predict=true\
+  --do_predict=false\
   --do_lower_case=false \
   --data_dir=$DDIAL_DIR \
   --vocab_file=$BERT_BASE_DIR/vocab.txt \
@@ -18,5 +18,5 @@ python3 run_classifier.py \
   --max_seq_length=60 \
   --train_batch_size=32 \
   --learning_rate=1e-5 \
-  --num_train_epochs=3.0 \
+  --num_train_epochs=1.0 \
   --output_dir=/tmp/$OUTDIR

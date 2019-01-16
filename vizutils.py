@@ -2,10 +2,11 @@
 import itertools
 import numpy as np
 import os
+import pdb
 
 
-import matplotlib as mpl
-mpl.use('Agg')
+#import matplotlib as mpl
+#mpl.use('Agg')
 
 import matplotlib.pyplot as plt
 
@@ -51,8 +52,40 @@ def plot_confusion_matrix(cm, classes,
     if saveat is not None:
         plt.savefig(os.path.join(saveat  , 'confussion_matrix' + suff + '.png'))
 
-    plt.cla()
-    plt.close()
+        plt.cla()
+        plt.close()
 
     
 
+def plot_attention_matrix(cm, classes,
+                          title='Attention matrix',
+                          cmap=plt.cm.Blues, saveat = None,suff = None, figsize = None, hide_special = False):
+    """
+    This function prints and plots the attention matrix.
+    """
+
+    if hide_special:
+        dd = [t for t in zip(classes , range(0, len(classes))) if t[0] != '[SEP]' and t[0] !='[CLS]'] # get the indices of the tokens and the stripped tokens.
+        classes = [d[0] for d in dd]
+        ids = [d[1] for d in dd];
+        cm = cm[ids].T[ids].T # taking out the columns and rows that correspond to the indices with special tokens.
+
+
+    if figsize is not None:
+        plt.figure(figsize = figsize)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=90)
+    plt.yticks(tick_marks, classes)
+
+    plt.ylabel('tokens')
+    plt.xlabel('tokens')
+    plt.tight_layout()
+    if saveat is not None:
+        plt.savefig(os.path.join(saveat  , 'attention_matrix' + suff + '.png'))
+
+        plt.cla()
+        plt.close()
