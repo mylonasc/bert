@@ -3,10 +3,8 @@ export BERT_BASE_DIR=../BERTModels/cased_L-12_H-768_A-12 # The BERT model we are
 BSIZE=$1
 
 export DDIAL_DIR=../Datasets/ijcnlp_dailydialog # Assumes you have already unzipped the train/test/dev examples. This is to be automated in the future.
-if hostname == "marvin"
-then
-	export $SCRATCH="../../"
-fi
+
+export SCRATCH=../../
 export OUTDIR=$SCRATCH/ddial_out_eng_b$BSIZE
 
 
