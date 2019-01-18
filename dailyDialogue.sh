@@ -1,7 +1,7 @@
 export BERT_BASE_DIR=../BERTModels/multi_cased_L-12_H-768_A-12 # The BERT model we are using.
 #export GLUE_DIR=../glue_data
 export DDIAL_DIR=../Datasets/ijcnlp_dailydialog # Assumes you have already unzipped the train/test/dev examples. This is to be automated in the future.
-export OUTDIR=ddial_out
+export OUTDIR=ddial_out_$1
 
 
 python3 run_classifier.py \

@@ -1,4 +1,4 @@
-# coding=utf-8
+#FLAGS.max coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,10 +26,15 @@ import optimization
 import tokenization
 import tensorflow as tf
 import code
+import pdb
 import numpy as np
 
 from vizutils import *
 import matplotlib.pyplot as pplot
+
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+
 
 flags = tf.flags
 
@@ -86,6 +91,8 @@ flags.DEFINE_bool(
     "Whether to run the model in inference mode on the test set.")
 
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
+
+flags.DEFINE_integer("nbatches" , 20, "number of batches to use for model inspection (make this lower if you are memory constrained) ")
 
 flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
 
@@ -199,134 +206,7 @@ class DataProcessor(object):
       return lines
 
 
-class XnliProcessor(DataProcessor):
-  """Processor for the XNLI data set."""
 
-  def __init__(self):
-    self.language = "zh"
-
-  def get_train_examples(self, data_dir):
-    """See base class."""
-    lines = self._read_tsv(
-        os.path.join(data_dir, "multinli",
-                     "multinli.train.%s.tsv" % self.language))
-    examples = []
-    for (i, line) in enumerate(lines):
-      if i == 0:
-        continue
-      guid = "train-%d" % (i)
-      text_a = tokenization.convert_to_unicode(line[0])
-      text_b = tokenization.convert_to_unicode(line[1])
-      label = tokenization.convert_to_unicode(line[2])
-      if label == tokenization.convert_to_unicode("contradictory"):
-        label = tokenization.convert_to_unicode("contradiction")
-      examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
-    return examples
-
-  def get_dev_examples(self, data_dir):
-    """See base class."""
-    lines = self._read_tsv(os.path.join(data_dir, "xnli.dev.tsv"))
-    examples = []
-    for (i, line) in enumerate(lines):
-      if i == 0:
-        continue
-      guid = "dev-%d" % (i)
-      language = tokenization.convert_to_unicode(line[0])
-      if language != tokenization.convert_to_unicode(self.language):
-        continue
-      text_a = tokenization.convert_to_unicode(line[6])
-      text_b = tokenization.convert_to_unicode(line[7])
-      label = tokenization.convert_to_unicode(line[1])
-      examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
-    return examples
-
-  def get_labels(self):
-    """See base class."""
-    return ["contradiction", "entailment", "neutral"]
-
-
-class MnliProcessor(DataProcessor):
-  """Processor for the MultiNLI data set (GLUE version)."""
-
-  def get_train_examples(self, data_dir):
-    """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
-
-  def get_dev_examples(self, data_dir):
-    """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "dev_matched.tsv")),
-        "dev_matched")
-
-  def get_test_examples(self, data_dir):
-    """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "test_matched.tsv")), "test")
-
-  def get_labels(self):
-    """See base class."""
-    return ["contradiction", "entailment", "neutral"]
-
-  def _create_examples(self, lines, set_type):
-    """Creates examples for the training and dev sets."""
-    examples = []
-    for (i, line) in enumerate(lines):
-      if i == 0:
-        continue
-      guid = "%s-%s" % (set_type, tokenization.convert_to_unicode(line[0]))
-      text_a = tokenization.convert_to_unicode(line[8])
-      text_b = tokenization.convert_to_unicode(line[9])
-      if set_type == "test":
-        label = "contradiction"
-      else:
-        label = tokenization.convert_to_unicode(line[-1])
-      examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
-    return examples
-
-
-class MrpcProcessor(DataProcessor):
-  """Processor for the MRPC data set (GLUE version)."""
-
-  def get_train_examples(self, data_dir):
-    """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
-
-  def get_dev_examples(self, data_dir):
-    """See base class."""
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
-
-  def get_test_examples(self, data_dir):
-    """See base class."""
-
-    return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
-
-  def get_labels(self):
-    """See base class."""
-    return ["0", "1"]
-
-  def _create_examples(self, lines, set_type):
-    """Creates examples for the training and dev sets."""
-    examples = []
-    for (i, line) in enumerate(lines):
-      if i == 0:
-        continue
-      guid = "%s-%s" % (set_type, i)
-      text_a = tokenization.convert_to_unicode(line[3])
-      text_b = tokenization.convert_to_unicode(line[4])
-      if set_type == "test":
-        label = "0"
-      else:
-        label = tokenization.convert_to_unicode(line[0])
-      examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
-    return examples
 
 class DailyDialogueProcessor(DataProcessor):
   """
@@ -680,19 +560,193 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
     tokens.append(token)
   return features
 
-def check_changed_vars(ckpt1 = None,ckpt2 = None):
+
+
+
+class InspectorBert():
+  def __init__(self):
+
+    tf.logging.set_verbosity(tf.logging.INFO)
+
+    processors = {
+        "ddial": DailyDialogueProcessor,
+        "swda": SWDAProcessor
+    }
+
+    tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
+                                                  FLAGS.init_checkpoint)
+
+    if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
+      raise ValueError(
+          "At least one of `do_train`, `do_eval` or `do_predict' must be True.")
+
+    bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
+    if FLAGS.max_seq_length > bert_config.max_position_embeddings:
+      raise ValueError(
+          "Cannot use sequence length %d because the BERT model "
+          "was only trained up to sequence length %d" %
+          (FLAGS.max_seq_length, bert_config.max_position_embeddings))
+
+    tf.gfile.MakeDirs(FLAGS.output_dir)
+
+    task_name = FLAGS.task_name.lower()
+
+    if task_name not in processors:
+      raise ValueError("Task not found: %s" % (task_name))
+
+    self.processor = processors[task_name]()
+
+    self.label_list = self.processor.get_labels()
+
+    self.tokenizer = tokenization.FullTokenizer(
+        vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
+
+    train_examples = None
+    num_train_steps = None
+    num_warmup_steps = None
+
+    
+    self.input_examples = self.processor.get_test_examples(FLAGS.data_dir)
+
+    ## Create the actual model:
+
+    ss = [FLAGS.train_batch_size, FLAGS.max_seq_length];
+
+    self.input_ids_ = tf.placeholder(dtype = tf.int32, shape = ss, name = 'input_ids')
+    self.input_mask_ = tf.placeholder(dtype = tf.int32, shape = ss, name = 'input_mask')
+    self.segment_ids_ = tf.placeholder(dtype = tf.int32,shape= ss, name = 'segment_ids')
+    self.label_id_ = tf.placeholder(dtype = tf.int32 , shape = [FLAGS.train_batch_size], name = 'label_id')
+
+    (total_loss, per_example_loss, logits, probabilities, model) = create_model(
+          bert_config, False, self.input_ids_, self.input_mask_, self.segment_ids_, self.label_id_,
+          len(self.label_list), use_one_hot_embeddings = True)
+
+    self.model = model
+    self.total_loss = total_loss
+    self.per_example_loss = per_example_loss
+    self.logits = logits
+    self.probabilities = probabilities
+
+
+  def get_feed_dict_by_indices(self,example_indices):
+    """
+    input : a list or iterator of indices
+    returns a feed_dict ready to be fed to the evaluator
+    """
+    input_feats_and_tokens = [convert_single_example(eid , self.input_examples[eid ],self.processor.get_labels(), FLAGS.max_seq_length, self.tokenizer) for eid  in example_indices]
+    tokens = [inf[1] for inf in input_feats_and_tokens]
+    input_feats = [inf[0] for inf in input_feats_and_tokens]
+    input_ids  = np.array([iff.input_ids for iff in input_feats])
+    input_mask = np.array([iff.input_mask for iff in input_feats])
+    segment_ids = np.array([iff.segment_ids for iff in input_feats])
+    label_id = np.array([iff.label_id for iff in input_feats])
+    return {self.input_ids_ : input_ids, self.input_mask_:input_mask, self.segment_ids_ : segment_ids, self.label_id_ : label_id} 
+
+  def get_tokens_by_indices(self, example_indices):
+    input_feats_and_tokens = [convert_single_example(eid , self.input_examples[eid ],self.processor.get_labels(), FLAGS.max_seq_length, self.tokenizer) for eid  in example_indices]
+    tokens = [inf[1] for inf in input_feats_and_tokens]
+    return tokens
+
+
+
+  def eval_batch(self,batch_num):
+    """
+    Evaluates certain parts of BERT for a batch (since all of the examples can't fit at once in the memory)
+    """
+    batch_size = FLAGS.train_batch_size
+    examples = [r for r in range( batch_size*batch_num,batch_size+batch_size*batch_num)]
+    feed_dict = self.get_feed_dict_by_indices(examples)
+    
+
+    # This is the only thing the classifier sees (bert is not really "pooling" - it is masking).
+    a  = self.model.embedding_output.eval(feed_dict = feed_dict)
+
+    pooled_out = self.model.get_pooled_output().eval(feed_dict = feed_dict)
+    allprobs = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_probs]
+    attention_heads = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_heads]# The raw attention heads before projecting to "hidden size". Hopefully they will show correlation with classes.
+
+    tokens = self.get_tokens_by_indices(examples)
+
+    return allprobs, pooled_out, attention_heads, tokens
+
+  def get_label_map(self):
+    return {k[0] : k[1] for k in zip(self.label_list, range(0,len(self.label_list))) }
+
+  def pca_attention_heads(self,allp, context_size = 768, ncomponents = 3):
+    """
+    returns the PCA scores and components of attention heads.
+    The PCA *components* that correspond to PCA *scores* that separate well the classes,
+    can be used to identify the (combination of) attention heads and attention layers that 
+    contribute most to the separation of classes.
+
+    allp : output from eval_batch (the 3rd element (index 2) of each list element corresponds to an attention head.)
+    """
+
+    from sklearn.decomposition import PCA
+    att_heads = [a[2] for a in allp];
+    att_outs = np.vstack([att[0].reshape([FLAGS.train_batch_size,-1,context_size]) for att in att_heads]);
+    pp = att_outs.reshape([FLAGS.train_batch_size * FLAGS.nbatches ,-1]); 
+
+    pca = PCA(n_components = ncomponents); # fewer can be better.
+    pca.fit(pp)
+
+    sc = pca.transform(pp); # The attention head vector projected in the PCA space
+    #components = pca.components_;
+    #ids_0 = np.where(np.array(class_ids) == 3)[0]; pplot.plot(sc[ids_0,0],sc[ids_0,1],'*');
+    return sc, pca
+
+  def get_example_class_int(self):
+    """
+    gets a list of integers corresponding to classes 
+    for easier plotting. Assuming that the eval_batch was used
+    """
+    class_ids  = [self.get_label_map()[self.input_examples[k].label] for k in range(0,FLAGS.train_batch_size * FLAGS.nbatches)]
+    return class_ids
+
+  def gplotmatrix(self,sc, classinds):
+    f = pplot.figure
+    plt_ind = 1
+    for k in range(0, sc.shape[1]):
+      for m in range(0, sc.shape[1]):
+        print("%i,%i"%(k,m))
+        pplot.subplot(sc.shape[1],sc.shape[1],plt_ind)
+        plt_ind = plt_ind + 1
+        for _class in range(0,np.max(np.array(classinds))+1):
+          cl_inds = np.where(np.array(classinds) == _class)[0]
+          if k == m :
+            pplot.hist(sc[cl_inds,k],20, alpha = 0.6, label = 'class %i'%_class)
+            continue
+          else:
+            pplot.plot(sc[cl_inds,m],sc[cl_inds,k],"*", alpha = 0.6)
+        if k == 0:
+          pplot.title('Component %i'%m)
+        if m == 0:
+          pplot.ylabel('Component %i'%k)
+
+        if plt_ind ==2 :
+          pplot.legend(['class %i'%k for k in range(0,np.max(np.array(classinds))+1)])
+
+
+
+  @classmethod
+  def check_changed_vars(self,ckpt1 = None,ckpt2 = None):
     """
     Takes two checkpoints, iterates over trainable variables
     and checks the differences in weights (made for BERT)
     """
     if ckpt1 == None:
       ckpt1 = FLAGS.init_checkpoint
-    
+     
     if ckpt2 == None:
       ckpt2 = FLAGS.diff_checkpoint
 
     with tf.Session() as sess:
       saver_all = tf.train.Saver()#sess,ckpt1)
+      print("------------------")
+      print("-  MODEL FROM:   -")
+      print("------------------")
+      print("-" + ckpt1  )
+      print("------------------")
       saver_all.restore(sess,ckpt1)
       v = tf.trainable_variables(scope = 'bert')
       vars_to_check = [g for g in v if 'gamma' not in g.name and 'beta' not in g.name]
@@ -702,7 +756,7 @@ def check_changed_vars(ckpt1 = None,ckpt2 = None):
       v2 = [g.eval() for g in vars_to_check]
 
       diffs = [np.sqrt(np.sum((mm[0]-mm[1])**2)) for mm in zip(v1, v2)]
-      
+        
       dd = [[v[0] for v in zip(diffs,vars_to_check) if 'layer_'+str(k) in v[1].name] for k in range(0,11)]; 
       #pplot.plot(dd[2:]);pplot.grid(True); pplot.title('Normalized Differences of BERT parameter layers after fine-tuning');pplot.legend(['layer '+str(k) for k in range(0,11)]);
 
@@ -711,98 +765,97 @@ def check_changed_vars(ckpt1 = None,ckpt2 = None):
 
 
 
+
+
+
+
+
+
 def main(_):
-  tf.logging.set_verbosity(tf.logging.INFO)
+  bert_inspector  = InspectorBert()
 
+  d1,d2,d3 = bert_inspector.check_changed_vars()
 
-  processors = {
-      "cola": ColaProcessor,
-      "mnli": MnliProcessor,
-      "mrpc": MrpcProcessor,
-      "xnli": XnliProcessor,
-      "ddial": DailyDialogueProcessor,
-      "swda": SWDAProcessor
-  }
-
-  tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
-                                                FLAGS.init_checkpoint)
-
-  if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
-    raise ValueError(
-        "At least one of `do_train`, `do_eval` or `do_predict' must be True.")
-
-  bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
-  if FLAGS.max_seq_length > bert_config.max_position_embeddings:
-    raise ValueError(
-        "Cannot use sequence length %d because the BERT model "
-        "was only trained up to sequence length %d" %
-        (FLAGS.max_seq_length, bert_config.max_position_embeddings))
-
-  tf.gfile.MakeDirs(FLAGS.output_dir)
-
-
-
-  task_name = FLAGS.task_name.lower()
-
-  if task_name not in processors:
-    raise ValueError("Task not found: %s" % (task_name))
-
-  processor = processors[task_name]()
-
-  label_list = processor.get_labels()
-
-  tokenizer = tokenization.FullTokenizer(
-      vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
-
-  train_examples = None
-  num_train_steps = None
-  num_warmup_steps = None
-
-  input_examples = processor.get_test_examples(FLAGS.data_dir)
-
-  ## make it for for 1 example:
-  examples = [r for r in range(0,32)]
-  input_feats_and_tokens = [convert_single_example(eid , input_examples[eid ],processor.get_labels(), 60, tokenizer) for eid  in examples]
-  tokens = [inf[1] for inf in input_feats_and_tokens]
-  input_feats = [inf[0] for inf in input_feats_and_tokens]
-  input_ids  = np.array([iff.input_ids for iff in input_feats])
-  input_mask = np.array([iff.input_mask for iff in input_feats])
-  segment_ids = np.array([iff.segment_ids for iff in input_feats])
-  label_id = np.array([iff.label_id for iff in input_feats])
-
-
-
-  ## Create the actual model:
-
-  input_ids_ = tf.placeholder(dtype = tf.int32, shape = input_ids.shape, name = 'input_ids')
-  input_mask_ = tf.placeholder(dtype = tf.int32, shape =input_mask.shape, name = 'input_mask')
-  segment_ids_ = tf.placeholder(dtype = tf.int32,shape= segment_ids.shape, name = 'segment_ids')
-  label_id_ = tf.placeholder(dtype = tf.int32 , shape = label_id.shape, name = 'label_id')
-
-
-  (total_loss, per_example_loss, logits, probabilities, model) = create_model(
-        bert_config, False, input_ids_, input_mask_, segment_ids_, label_id_,
-        len(label_list), use_one_hot_embeddings = True)
-
-  d1,d2,d3 = check_changed_vars()
-
-  #tf.reset_default_graph()
   with tf.Session() as sess:
     
     v1 =tf.report_uninitialized_variables().eval()
     saver = tf.train.Saver(); 
     saver.restore(sess,FLAGS.init_checkpoint)
+    def restmod(n):
+      saver.restore(sess,FLAGS.init_checkpoint[:-4]+str(n))
 
 
-    feed_dict = {input_ids_ : input_ids, input_mask_:input_mask, segment_ids_ : segment_ids, label_id_ : label_id}
-    a  = model.embedding_output.eval(feed_dict = feed_dict)
-    allp = [mm.eval(feed_dict = feed_dict) for mm in model.all_attention_probs]
+    # Evaluate the self attention matrices separately for each head and layer:
+    allp = []
+    for k in range(0,FLAGS.nbatches):
+      allp.append(bert_inspector.eval_batch(k));
+
+    
+
+    tokens = [a[3] for a in allp]
+    pooled_outs  = np.vstack([a[1] for a in allp])
+
+    # get the attention heads separately for each batch simply by reshaping (batch @ first dimension should do that):
+    att_heads = [a[2] for a in allp]
+    att_outs = np.vstack([att[0].reshape([FLAGS.train_batch_size,-1,768]) for att in att_heads])
 
     #p1 = model.all_attention_probs[11].eval(feed_dict = {input_ids_ : input_ids, input_mask_:input_mask, segment_ids_ : segment_ids, label_id_ : label_id});
 
-    tt = 1; st = len(tokens[tt]) ; plot_attention_matrix(allp[0][1,1,:,:],tokens[1], hide_special = True);pplot.show(block = False)
+    vars = dict(locals(),**globals());
+    import rlcompleter
+    import readline
+    readline.set_completer(rlcompleter.Completer(vars).complete)
+    readline.parse_and_bind("tab: complete")
+
+
     
-    code.interact(local = dict(locals(),**globals()))
+    # plot PCA coefficients of the pooled output layer scores, to see if they separate well:
+
+    
+    sc,att_pca = bert_inspector.pca_attention_heads(allp)
+    classes = bert_inspector.get_example_class_int()
+
+    bert_inspector.gplotmatrix(sc,classes)
+    pplot.savefig('../results/PCA_components_attheads.png')
+
+    
+
+
+    code.interact(local = vars)
+
+
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components = 10)
+    pca.fit(pooled_outs)
+    pp = pca.transform(pooled_outs)
+    label_map = bert_inspector.get_label_map()
+    class_ids  = [label_map[bert_inspector.input_examples[k].label] for k in range(0,pooled_outs.shape[0])]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # plot different classes with different symbols and colors in the scatterplot:
+    cols = ['r','g','b','m']
+    symbs = ['*','^','X','+']
+    for _class in range(0,4):
+      for kk in np.where(np.array(class_ids) == _class)[0]:
+        ax.scatter(pp[kk,0],pp[kk,1],pp[kk,2],c  = cols[_class], label = bert_inspector.label_list[_class], edgecolors = 'none', marker = symbs[_class])
+
+
+    ax.set_xlabel('c_1')
+    ax.set_xlabel('c_2')
+    ax.set_xlabel('c_3')
+
+    pplot.title('Distribution of Principal Component scores \n Transformer Output')
+    
+    pplot.show()
+
+
+
+    
+
+
+    tt = 1; st = len(tokens[tt]) ; plot_attention_matrix(allp[0][tt,1,:,:],tokens[1], hide_special = True);pplot.show(block = False)
 
 
 

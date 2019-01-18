@@ -205,7 +205,7 @@ class BertModel(object):
 
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
-        self.all_encoder_layers , self.all_attention_probs= transformer_model(
+        self.all_encoder_layers , self.all_attention_probs, self.all_attention_heads = transformer_model(
             input_tensor=self.embedding_output,
             attention_mask=attention_mask,
             hidden_size=config.hidden_size,
@@ -233,6 +233,7 @@ class BertModel(object):
             config.hidden_size,
             activation=tf.tanh,
             kernel_initializer=create_initializer(config.initializer_range))
+      
 
   def get_pooled_output(self):
     return self.pooled_output
@@ -892,10 +893,10 @@ def transformer_model(input_tensor,
     for layer_output in all_layer_outputs:
       final_output = reshape_from_matrix(layer_output, input_shape)
       final_outputs.append(final_output)
-    return final_outputs, attention_probs
+    return final_outputs, attention_probs, attention_heads
   else:
     final_output = reshape_from_matrix(prev_output, input_shape)
-    return final_output, attention_probs
+    return final_output, attention_probs, attention_heads
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):

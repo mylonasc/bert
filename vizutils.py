@@ -59,7 +59,7 @@ def plot_confusion_matrix(cm, classes,
 
 def plot_attention_matrix(cm, classes,
                           title='Attention matrix',
-                          cmap=plt.cm.Blues, saveat = None,suff = None, figsize = None, hide_special = False):
+                          cmap=plt.cm.Greens, saveat = None,suff = None, figsize = None, hide_special = False):
     """
     This function prints and plots the attention matrix.
     """
@@ -69,6 +69,12 @@ def plot_attention_matrix(cm, classes,
         classes = [d[0] for d in dd]
         ids = [d[1] for d in dd];
         cm = cm[ids].T[ids].T # taking out the columns and rows that correspond to the indices with special tokens.
+    else:
+        # We hide only the attention to outputs that correspond to empty tokens.
+        r = range(0,len(classes));
+        cm = cm[r].T[r].T
+        #pdb.set_trace()
+
 
 
     if figsize is not None:
@@ -76,7 +82,7 @@ def plot_attention_matrix(cm, classes,
 
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
-    plt.colorbar()
+    #plt.colorbar()
     tick_marks = np.arange(len(classes))
     plt.xticks(tick_marks, classes, rotation=90)
     plt.yticks(tick_marks, classes)
