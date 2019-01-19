@@ -205,7 +205,7 @@ class BertModel(object):
 
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
-        self.all_encoder_layers , self.all_attention_probs, self.all_attention_heads = transformer_model(
+        self.all_encoder_layers , self.all_attention_probs, self.all_attention_heads_all_layers, self.all_attention_values_all_layers = transformer_model(
             input_tensor=self.embedding_output,
             attention_mask=attention_mask,
             hidden_size=config.hidden_size,
@@ -753,7 +753,7 @@ def attention_layer(from_tensor,
         context_layer,
         [batch_size, from_seq_length, num_attention_heads * size_per_head])
 
-  return context_layer, attention_probs
+  return context_layer, attention_probs, value_layer
 
 
 def transformer_model(input_tensor,
@@ -829,14 +829,17 @@ def transformer_model(input_tensor,
 
   all_layer_outputs = []
   attention_probs   = []
+  all_attention_heads_all_layers = []
+  all_attention_values_all_layers = []
   for layer_idx in range(num_hidden_layers):
     with tf.variable_scope("layer_%d" % layer_idx):
       layer_input = prev_output
 
       with tf.variable_scope("attention"):
         attention_heads = []
+        attention_values = []
         with tf.variable_scope("self"):
-          attention_head, attention_prob = attention_layer(
+          attention_head, attention_prob, attention_value = attention_layer(
               from_tensor=layer_input,
               to_tensor=layer_input,
               attention_mask=attention_mask,
@@ -848,8 +851,13 @@ def transformer_model(input_tensor,
               batch_size=batch_size,
               from_seq_length=seq_length,
               to_seq_length=seq_length)
+
+          attention_values.append(attention_value)
           attention_heads.append(attention_head)
+          all_attention_heads_all_layers.append(attention_heads)
+          all_attention_values_all_layers.append(attention_values)
           attention_probs.append(attention_prob)
+          
 
         attention_output = None
         if len(attention_heads) == 1:
@@ -893,10 +901,10 @@ def transformer_model(input_tensor,
     for layer_output in all_layer_outputs:
       final_output = reshape_from_matrix(layer_output, input_shape)
       final_outputs.append(final_output)
-    return final_outputs, attention_probs, attention_heads
+    return final_outputs, attention_probs, all_attention_heads_all_layers ,all_attention_values_all_layers 
   else:
     final_output = reshape_from_matrix(prev_output, input_shape)
-    return final_output, attention_probs, attention_heads
+    return final_output, attention_probs, all_attention_heads_all_layers , all_attention_values_all_layers
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):

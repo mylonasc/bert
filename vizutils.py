@@ -95,3 +95,37 @@ def plot_attention_matrix(cm, classes,
 
         plt.cla()
         plt.close()
+
+def plot_attention_words(cm, word_1 ,word_2 = None, color = None ):
+    """
+    Plot attention
+    """
+    if text_2 == None: 
+        text_2 = text_1
+
+    fig = pplot.figure()
+
+    ax = fig.add_subplot(111)
+
+    offs = 0;
+    offs_step = 0.1
+    for k in text_1:
+        ax.text(0+offs,0.3, k, rotation = 90, fontsize = 24)
+        offs = offs + offs_step
+
+    offs = 0;
+    for m in text_2:
+        ax.text(offs ,0.65, m, rotation = 90, fontsize = 24, horizontalalignment = 'left', verticalalignment = 'bottom')
+        offs = offs + offs_step
+
+
+    ax.axis('off')
+
+    x_vals= np.linspace(0,offs-offs_step,len(text_1))+0.05
+    y_start = 0.4
+    y_end  = 0.6
+    for k in range(0,cm.shape[0]):
+        for m in range(0,cm.shape[1]):
+            line = mpl.lines.Line2D([x_vals[k], x_vals[m]], [y_start, y_end], lw = 5,alpha = 1 * cm[k,m], color = None)
+            ax.add_line(line)
+

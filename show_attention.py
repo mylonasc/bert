@@ -663,11 +663,13 @@ class InspectorBert():
 
     pooled_out = self.model.get_pooled_output().eval(feed_dict = feed_dict)
     allprobs = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_probs]
-    attention_heads = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_heads]# The raw attention heads before projecting to "hidden size". Hopefully they will show correlation with classes.
+    attention_heads  = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_heads_all_layers[-1]]# The raw attention heads from last layer before projecting to "hidden size". Hopefully they will show correlation with classes.
+    attention_values = [mm.eval(feed_dict = feed_dict) for mm in self.model.all_attention_values_all_layers[-1]]# The raw attention heads from last layer before projecting to "hidden size". Hopefully they will show correlation with classes.
+
 
     tokens = self.get_tokens_by_indices(examples)
 
-    return allprobs, pooled_out, attention_heads, tokens
+    return allprobs, pooled_out, attention_heads, attention_values, tokens
 
   def get_label_map(self):
     return {k[0] : k[1] for k in zip(self.label_list, range(0,len(self.label_list))) }
@@ -694,6 +696,7 @@ class InspectorBert():
     #components = pca.components_;
     #ids_0 = np.where(np.array(class_ids) == 3)[0]; pplot.plot(sc[ids_0,0],sc[ids_0,1],'*');
     return sc, pca
+
 
   def get_example_class_int(self):
     """
@@ -725,6 +728,16 @@ class InspectorBert():
 
         if plt_ind ==2 :
           pplot.legend(['class %i'%k for k in range(0,np.max(np.array(classinds))+1)])
+
+    def scale_add_attention_probs(self,att_head_vector):
+      """
+      inner product attention to inner product attention:
+      ---------------------------------------------------
+      This should pin-point the attention heads (and attention head parts) 
+      that contribute most to the attention head output being close to a vector that 
+      looks like the input vector. This is performed 
+      """
+
 
 
 
@@ -792,14 +805,32 @@ def main(_):
 
     
 
-    tokens = [a[3] for a in allp]
+    tokens = [a[4] for a in allp]
+    att_vals = [a[3] for a in allp]
     pooled_outs  = np.vstack([a[1] for a in allp])
 
     # get the attention heads separately for each batch simply by reshaping (batch @ first dimension should do that):
     att_heads = [a[2] for a in allp]
     att_outs = np.vstack([att[0].reshape([FLAGS.train_batch_size,-1,768]) for att in att_heads])
 
+    att_probs = np.hstack([a[0] for a in allp]).swapaxes(0,1);
+
+    # Compute a globally weighted attention matrix w.r.t. the second PCA component (best separation between first two classes):
+
+
     #p1 = model.all_attention_probs[11].eval(feed_dict = {input_ids_ : input_ids, input_mask_:input_mask, segment_ids_ : segment_ids, label_id_ : label_id});
+
+    # plot PCA coefficients of the pooled output layer scores, to see if they separate well:
+    sc,att_pca = bert_inspector.pca_attention_heads(allp)
+    classes = bert_inspector.get_example_class_int()
+    bert_inspector.gplotmatrix(sc,classes)
+    #pplot.savefig('../results/PCA_components_attheads.png')
+
+    v = att_pca.components_[1,:].reshape([12,60,-1])
+
+    att_vals = np.vstack(att_vals).reshape([20*32, 12, 60, 64])
+
+    B = att_pca.components_[1,:].reshape([-1,768])
 
     vars = dict(locals(),**globals());
     import rlcompleter
@@ -807,21 +838,12 @@ def main(_):
     readline.set_completer(rlcompleter.Completer(vars).complete)
     readline.parse_and_bind("tab: complete")
 
+    head_probs = np.vstack([k[0] for k in allp]).reshape([32*20,12,12,60,60])
 
-    
-    # plot PCA coefficients of the pooled output layer scores, to see if they separate well:
-
-    
-    sc,att_pca = bert_inspector.pca_attention_heads(allp)
-    classes = bert_inspector.get_example_class_int()
-
-    bert_inspector.gplotmatrix(sc,classes)
-    pplot.savefig('../results/PCA_components_attheads.png')
-
-    
 
 
     code.interact(local = vars)
+
 
 
     from sklearn.decomposition import PCA
@@ -849,12 +871,6 @@ def main(_):
     pplot.title('Distribution of Principal Component scores \n Transformer Output')
     
     pplot.show()
-
-
-
-    
-
-
     tt = 1; st = len(tokens[tt]) ; plot_attention_matrix(allp[0][tt,1,:,:],tokens[1], hide_special = True);pplot.show(block = False)
 
 
