@@ -221,6 +221,9 @@ class DailyDialogueProcessor(DataProcessor):
     ff = self._ddread(data_dir,'train')
     return self._create_examples(ff, "train")
 
+  def get_single_example(self,data_dir, dialog_id, pair_id):
+      return 
+
   def get_dev_examples(self, data_dir):
     """See base class."""
 
@@ -647,6 +650,14 @@ class InspectorBert():
     tokens = [inf[1] for inf in input_feats_and_tokens]
     return tokens
 
+  def get_index_by_first_utt(self, first_utterance_text_part):
+      """
+      Get indices of examples given some text of the first utterance
+      """
+
+      inds = [ie[1] for ie in zip(self.input_examples, range(0,len(self.input_examples)) ) if first_utterance_text_part in ie[0].text_a ]
+
+      return inds
 
 
   def eval_batch(self,batch_num):
@@ -729,14 +740,6 @@ class InspectorBert():
         if plt_ind ==2 :
           pplot.legend(['class %i'%k for k in range(0,np.max(np.array(classinds))+1)])
 
-    def scale_add_attention_probs(self,att_head_vector):
-      """
-      inner product attention to inner product attention:
-      ---------------------------------------------------
-      This should pin-point the attention heads (and attention head parts) 
-      that contribute most to the attention head output being close to a vector that 
-      looks like the input vector. This is performed 
-      """
 
 
 
@@ -839,39 +842,27 @@ def main(_):
     readline.parse_and_bind("tab: complete")
 
     head_probs = np.vstack([k[0] for k in allp]).reshape([32*20,12,12,60,60])
+    tt = []; [tt.extend(pp) for pp in tokens]; tokens = tt
 
+    bert_inspector.plot_all_heads_for_example(example_number)
 
 
     code.interact(local = vars)
+    interesting_example = 340; 
+
+    for head in range(0,12):
+        plot_attention_matrix(head_probs[interesting_example][0][head][0:len(tt[340]),0:len(tt[340])], tt[340], title=' ', saveat='../results/', suff = 'layer_1_head_%i'%head , figsize=None, hide_special=False) ;
 
 
-
-    from sklearn.decomposition import PCA
-    pca = PCA(n_components = 10)
     pca.fit(pooled_outs)
-    pp = pca.transform(pooled_outs)
-    label_map = bert_inspector.get_label_map()
     class_ids  = [label_map[bert_inspector.input_examples[k].label] for k in range(0,pooled_outs.shape[0])]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    # plot different classes with different symbols and colors in the scatterplot:
-    cols = ['r','g','b','m']
-    symbs = ['*','^','X','+']
-    for _class in range(0,4):
-      for kk in np.where(np.array(class_ids) == _class)[0]:
-        ax.scatter(pp[kk,0],pp[kk,1],pp[kk,2],c  = cols[_class], label = bert_inspector.label_list[_class], edgecolors = 'none', marker = symbs[_class])
-
-
-    ax.set_xlabel('c_1')
-    ax.set_xlabel('c_2')
-    ax.set_xlabel('c_3')
-
-    pplot.title('Distribution of Principal Component scores \n Transformer Output')
-    
-    pplot.show()
     tt = 1; st = len(tokens[tt]) ; plot_attention_matrix(allp[0][tt,1,:,:],tokens[1], hide_special = True);pplot.show(block = False)
+
+
 
 
 

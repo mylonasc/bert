@@ -5,7 +5,7 @@ import os
 import pdb
 
 
-#import matplotlib as mpl
+import matplotlib as mpl
 #mpl.use('Agg')
 
 import matplotlib.pyplot as plt
@@ -96,14 +96,14 @@ def plot_attention_matrix(cm, classes,
         plt.cla()
         plt.close()
 
-def plot_attention_words(cm, word_1 ,word_2 = None, color = None ):
+def plot_attention_words(cm, text_1 ,text_2= None, color = None , figsize = None):
     """
     Plot attention
     """
     if text_2 == None: 
         text_2 = text_1
 
-    fig = pplot.figure()
+    fig = plt.figure(figsize = figsize)
 
     ax = fig.add_subplot(111)
 
